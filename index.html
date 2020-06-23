@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Deploy a Remix Contract</title>
+
+    <link rel="stylesheet" type="text/css" href="main.css">
+
+    <!-- <script src="https://cdn.jsdelivr.net/gh/ethereum/web3.js/dist/web3.min.js"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@biconomy/mexa@1/dist/mexa.js"></script>
+
+</head>
+
+<body>
+    <div>
+        <h1>Certificate on ethereum chain</h1>
+        <hr>
+
+        <label for="ownerName">Name</label>
+        <input id="ownerName" type="text">
+        <label for="ownerMarks">Marks</label>
+        <input id="ownerMarks" type="text">
+        
+        <button id="setMessageButton">Set secret message</button>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+
+    <script>
+
+        
+        let biconomy, web3, contract;
+        
+
+        var selectedAddress;
+
+        const domainType = [
+            { name: "name", type: "string" },
+            { name: "version", type: "string" },
+            { name: "chainId", type: "uint256" },
+            { name: "verifyingContract", type: "address" }
+        ];
+
+        const metaTransactionType = [
+            { name: "nonce", type: "uint256" },
+            { name: "from", type: "address" },
+            { name: "functionSignature", type: "bytes" }
+        ];
+
+        let domainData = {
+            name: "TestContract",
+            version: "1",
+            verifyingContract: '0xF4Ad448e2415728fdF3f5bb87F1F61010799a030'
+        };
+
+        //enable window ethereum element
+        window.addEventListener('load', async () => {
+            
+
+            if (
+                typeof window.ethereum !== "undefined" &&
+                window.ethereum.isMetaMask
+            ) {
+                // Ethereum user detected. You can now use the provider.
+                
+                const provider = window["ethereum"];
+                await provider.enable();
+                console.log('provider version', provider.networkVersion);
+                //provider.networkVersion === '4' or rinkeby and '3' for ropsten
+                if (provider.networkVersion === "3") {
+                    
+                    domainData.chainId = 3;
+
+                    if (window.Biconomy) {
+                        let Biconomy = window.Biconomy;
+                        //ropsten
+                        biconomy = new Biconomy(provider,{ apiKey: 'Gy8-rUlqX.1f2d8d22-53b4-4cf1-a88d-753f61ccd798'});
+                        
+                        //rinkeby
+                        // biconomy = new Biconomy(provider,{ apiKey: 'IuBX65g5C.41d4e2f0-58fa-427a-84ef-6799ad4edad4'});
+                        web3 = new Web3(biconomy);
+                        initializeContent(provider);
+                    }
+
+                    
+                } else {
+                    alert("Please change the network in metamask to Ropsten");
+                }
+            } else {
+                alert("Metamask not installed");
+            }
+        });
+
+
+        var initializeContent = function(provider){
+            console.log('inside initialize content');
+            // console.log(biconomy);
+            // biconomy.onEvent(biconomy.READY, () => {
+                // Initialize your dapp here like getting user accounts etc
+                console.log('inside biconomy');
+                // ropsten
+                contract = new web3.eth.Contract(
+                    [
+                        {
+                            "constant": false,
+                            "inputs": [
+                                {
+                                    "internalType": "address",
+                                    "name": "userAddress",
+                                    "type": "address"
+                                },
+                                {
+                                    "internalType": "bytes",
+                                    "name": "functionSignature",
+                                    "type": "bytes"
+                                },
+                                {
+                                    "internalType": "bytes32",
+                                    "name": "sigR",
+                                    "type": "bytes32"
+                                },
+                                {
+                                    "internalType": "bytes32",
+                                    "name": "sigS",
+                                    "type": "bytes32"
+                                },
+                                {
+                                    "internalType": "uint8",
+                                    "name": "sigV",
+                                    "type": "uint8"
+                                }
+                            ],
+                            "name": "executeMetaTransaction",
+                            "outputs": [
+                                {
+                                    "internalType": "bytes",
+                                    "name": "",
+                                    "type": "bytes"
+                                }
+                            ],
+                            "payable": true,
+                            "stateMutability": "payable",
+                            "type": "function"
+                        },
+                        {
+                            "anonymous": false,
+                            "inputs": [
+                                {
+                                    "indexed": false,
+                                    "internalType": "address",
+                                    "name": "userAddress",
+                                    "type": "address"
+                                },
+                                {
+                                    "indexed": false,
+                                    "internalType": "address payable",
+                                    "name": "relayerAddress",
+                                    "type": "address"
+                                },
+                                {
+                                    "indexed": false,
+                                    "internalType": "bytes",
+                                    "name": "functionSignature",
+                                    "type": "bytes"
+                                }
+                            ],
+                            "name": "MetaTransactionExecuted",
+                            "type": "event"
+                        },
+                        {
+                            "constant": false,
+                            "inputs": [
+                                {
+                                    "internalType": "string",
+                                    "name": "_ownerName",
+                                    "type": "string"
+                                },
+                                {
+                                    "internalType": "string",
+                                    "name": "_ownerMarks",
+                                    "type": "string"
+                                },
+                                {
+                                    "internalType": "string",
+                                    "name": "_certificateIssueDate",
+                                    "type": "string"
+                                }
+                            ],
+                            "name": "setValues",
+                            "outputs": [],
+                            "payable": false,
+                            "stateMutability": "nonpayable",
+                            "type": "function"
+                        },
+                        {
+                            "payable": true,
+                            "stateMutability": "payable",
+                            "type": "fallback"
+                        },
+                        {
+                            "constant": true,
+                            "inputs": [],
+                            "name": "certificateIssueDate",
+                            "outputs": [
+                                {
+                                    "internalType": "string",
+                                    "name": "",
+                                    "type": "string"
+                                }
+                            ],
+                            "payable": false,
+                            "stateMutability": "view",
+                            "type": "function"
+                        },
+                        {
+                            "constant": true,
+                            "inputs": [
+                                {
+                                    "internalType": "address",
+                                    "name": "user",
+                                    "type": "address"
+                                }
+                            ],
+                            "name": "getNonce",
+                            "outputs": [
+                                {
+                                    "internalType": "uint256",
+                                    "name": "nonce",
+                                    "type": "uint256"
+                                }
+                            ],
+                            "payable": false,
+                            "stateMutability": "view",
+                            "type": "function"
+                        },
+                        {
+                            "constant": true,
+                            "inputs": [],
+                            "name": "owner",
+                            "outputs": [
+                                {
+                                    "internalType": "address",
+                                    "name": "",
+                                    "type": "address"
+                                }
+                            ],
+                            "payable": false,
+                            "stateMutability": "view",
+                            "type": "function"
+                        },
+                        {
+                            "constant": true,
+                            "inputs": [],
+                            "name": "ownerMarks",
+                            "outputs": [
+                                {
+                                    "internalType": "string",
+                                    "name": "",
+                                    "type": "string"
+                                }
+                            ],
+                            "payable": false,
+                            "stateMutability": "view",
+                            "type": "function"
+                        },
+                        {
+                            "constant": true,
+                            "inputs": [],
+                            "name": "ownerName",
+                            "outputs": [
+                                {
+                                    "internalType": "string",
+                                    "name": "",
+                                    "type": "string"
+                                }
+                            ],
+                            "payable": false,
+                            "stateMutability": "view",
+                            "type": "function"
+                        }
+                    ],
+                    '0xF4Ad448e2415728fdF3f5bb87F1F61010799a030'
+                );
+
+
+                // //rinkeby
+                // contract = new web3.eth.Contract(
+                //     [
+                //         {
+                //             "constant": false,
+                //             "inputs": [
+                //                 {
+                //                     "internalType": "address",
+                //                     "name": "userAddress",
+                //                     "type": "address"
+                //                 },
+                //                 {
+                //                     "internalType": "bytes",
+                //                     "name": "functionSignature",
+                //                     "type": "bytes"
+                //                 },
+                //                 {
+                //                     "internalType": "bytes32",
+                //                     "name": "sigR",
+                //                     "type": "bytes32"
+                //                 },
+                //                 {
+                //                     "internalType": "bytes32",
+                //                     "name": "sigS",
+                //                     "type": "bytes32"
+                //                 },
+                //                 {
+                //                     "internalType": "uint8",
+                //                     "name": "sigV",
+                //                     "type": "uint8"
+                //                 }
+                //             ],
+                //             "name": "executeMetaTransaction",
+                //             "outputs": [
+                //                 {
+                //                     "internalType": "bytes",
+                //                     "name": "",
+                //                     "type": "bytes"
+                //                 }
+                //             ],
+                //             "payable": true,
+                //             "stateMutability": "payable",
+                //             "type": "function"
+                //         },
+                //         {
+                //             "anonymous": false,
+                //             "inputs": [
+                //                 {
+                //                     "indexed": false,
+                //                     "internalType": "address",
+                //                     "name": "userAddress",
+                //                     "type": "address"
+                //                 },
+                //                 {
+                //                     "indexed": false,
+                //                     "internalType": "address payable",
+                //                     "name": "relayerAddress",
+                //                     "type": "address"
+                //                 },
+                //                 {
+                //                     "indexed": false,
+                //                     "internalType": "bytes",
+                //                     "name": "functionSignature",
+                //                     "type": "bytes"
+                //                 }
+                //             ],
+                //             "name": "MetaTransactionExecuted",
+                //             "type": "event"
+                //         },
+                //         {
+                //             "constant": false,
+                //             "inputs": [
+                //                 {
+                //                     "internalType": "string",
+                //                     "name": "_ownerName",
+                //                     "type": "string"
+                //                 },
+                //                 {
+                //                     "internalType": "string",
+                //                     "name": "_ownerMarks",
+                //                     "type": "string"
+                //                 },
+                //                 {
+                //                     "internalType": "string",
+                //                     "name": "_certificateIssueDate",
+                //                     "type": "string"
+                //                 }
+                //             ],
+                //             "name": "setValues",
+                //             "outputs": [],
+                //             "payable": false,
+                //             "stateMutability": "nonpayable",
+                //             "type": "function"
+                //         },
+                //         {
+                //             "payable": true,
+                //             "stateMutability": "payable",
+                //             "type": "fallback"
+                //         },
+                //         {
+                //             "constant": true,
+                //             "inputs": [],
+                //             "name": "certificateIssueDate",
+                //             "outputs": [
+                //                 {
+                //                     "internalType": "string",
+                //                     "name": "",
+                //                     "type": "string"
+                //                 }
+                //             ],
+                //             "payable": false,
+                //             "stateMutability": "view",
+                //             "type": "function"
+                //         },
+                //         {
+                //             "constant": true,
+                //             "inputs": [
+                //                 {
+                //                     "internalType": "address",
+                //                     "name": "user",
+                //                     "type": "address"
+                //                 }
+                //             ],
+                //             "name": "getNonce",
+                //             "outputs": [
+                //                 {
+                //                     "internalType": "uint256",
+                //                     "name": "nonce",
+                //                     "type": "uint256"
+                //                 }
+                //             ],
+                //             "payable": false,
+                //             "stateMutability": "view",
+                //             "type": "function"
+                //         },
+                //         {
+                //             "constant": true,
+                //             "inputs": [],
+                //             "name": "owner",
+                //             "outputs": [
+                //                 {
+                //                     "internalType": "address",
+                //                     "name": "",
+                //                     "type": "address"
+                //                 }
+                //             ],
+                //             "payable": false,
+                //             "stateMutability": "view",
+                //             "type": "function"
+                //         },
+                //         {
+                //             "constant": true,
+                //             "inputs": [],
+                //             "name": "ownerMarks",
+                //             "outputs": [
+                //                 {
+                //                     "internalType": "string",
+                //                     "name": "",
+                //                     "type": "string"
+                //                 }
+                //             ],
+                //             "payable": false,
+                //             "stateMutability": "view",
+                //             "type": "function"
+                //         },
+                //         {
+                //             "constant": true,
+                //             "inputs": [],
+                //             "name": "ownerName",
+                //             "outputs": [
+                //                 {
+                //                     "internalType": "string",
+                //                     "name": "",
+                //                     "type": "string"
+                //                 }
+                //             ],
+                //             "payable": false,
+                //             "stateMutability": "view",
+                //             "type": "function"
+                //         }
+                //     ],
+                //     '0x533B133531e5007820fB0A1Fb62D667c72Fe5c32'
+                // );
+
+                selectedAddress = provider.selectedAddress;
+                
+                provider.on("accountsChanged", function(accounts) {
+                    selectedAddress = accounts[0];
+                });
+
+            // }).onEvent(biconomy.ERROR, (error, message) => {
+            //     // Handle error while initializing mexa
+                
+            // });
+        }
+
+        
+
+        const onSubmit = async event => {
+            console.log('here',contract);
+            if ( contract && $("#ownerName").val() != "" && String($("#ownerMarks").val()) != "") {
+                // if (metaTxEnabled) {
+                console.log("Sending meta transaction");
+                let userAddress = selectedAddress;
+                let nonce = await contract.methods.getNonce(userAddress).call();
+                let functionSignature = contract.methods.setValues($("#ownerName").val(), $("#ownerMarks").val(), "1").encodeABI();
+                let message = {};
+                message.nonce = parseInt(nonce);
+                message.from = userAddress;
+                message.functionSignature = functionSignature;
+
+                const dataToSign = JSON.stringify({
+                    types: {
+                        EIP712Domain: domainType,
+                        MetaTransaction: metaTransactionType
+                    },
+                    domain: domainData,
+                    primaryType: "MetaTransaction",
+                    message: message
+                });
+                console.log(domainData);
+                console.log();
+                web3.currentProvider.send(
+                    {
+                        jsonrpc: "2.0",
+                        id: 999999999999,
+                        method: "eth_signTypedData_v4",
+                        params: [userAddress, dataToSign]
+                    },
+                    function (error, response) {
+                        console.info(`User signature is ${response.result}`);
+                        if (error || (response && response.error)) {
+                            alert("Could not get user signature");
+                        } else if (response && response.result) {
+                            let { r, s, v } = getSignatureParameters(response.result);
+                            console.log(userAddress);
+                            console.log(JSON.stringify(message));
+                            console.log(message);
+                            console.log(getSignatureParameters(response.result));
+
+                            // const recovered = sigUtil.recoverTypedSignature_v4({
+                            //     data: JSON.parse(dataToSign),
+                            //     sig: response.result
+                            // });
+                            // console.log(`Recovered ${recovered}`);
+                            sendTransaction(userAddress, functionSignature, r, s, v);
+                        }
+                    }
+                );
+                
+            } else {
+                alert("Please enter the quote");
+            }
+        };
+
+        $("#setMessageButton").click(onSubmit);
+
+
+        const getSignatureParameters = signature => {
+            if (!web3.utils.isHexStrict(signature)) {
+                throw new Error(
+                    'Given value "'.concat(signature, '" is not a valid hex string.')
+                );
+            }
+            var r = signature.slice(0, 66);
+            var s = "0x".concat(signature.slice(66, 130));
+            var v = "0x".concat(signature.slice(130, 132));
+            v = web3.utils.hexToNumber(v);
+            if (![27, 28].includes(v)) v += 27;
+            return {
+                r: r,
+                s: s,
+                v: v
+            };
+        };
+
+        const sendTransaction = async (userAddress, functionData, r, s, v) => {
+            if (web3 && contract) {
+                try {
+                    let gasLimit = await contract.methods
+                    //     .executeMetaTransaction(userAddress, functionData, r, s, v)
+                    //     .estimateGas({ from: userAddress });
+                    // let gasPrice = await web3.eth.getGasPrice();
+                    // console.log('gas limit',gasLimit);
+                    // console.log('gas price',gasPrice);
+                    let tx = contract.methods
+                        .executeMetaTransaction(userAddress, functionData, r, s, v)
+                        .send({
+                            from: userAddress,
+                            // gasPrice: web3.utils.toHex(gasPrice),
+                            gasLimit: web3.utils.toHex(8000000)
+                        });
+
+                    tx.on("transactionHash", function (hash) {
+                        console.log(`Transaction hash is ${hash}`);
+                        alert(`Transaction sent by relayer with hash ${hash}`);
+                    }).once("confirmation", function (confirmationNumber, receipt) {
+                        console.log(confirmationNumber);
+                        console.log(receipt);
+                        alert("Transaction confirmed on chain");
+                        // getQuoteFromNetwork();
+                    });
+                } catch (error) {
+                    console.log(error);
+                }
+            }
+        };
+
+        
+
+    </script>
+</body>
+
+</html>
